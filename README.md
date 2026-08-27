@@ -40,15 +40,27 @@ This is a small native macOS app that does exactly that, and nothing else.
 
 Grab `Sticker.dmg` from [Releases](../../releases), drag **Sticker** into Applications.
 
-The app is not notarized (it is free and unsigned), so the first launch needs:
+### First launch: macOS will block it
 
-**right-click the icon → Open → Open**
+The app is **not signed with an Apple Developer certificate** (that costs $99/year), so
+Gatekeeper refuses it with *"Apple could not verify Sticker is free of malware"* and offers
+only **Move to Trash**. That dialog is about the missing signature, not about the app.
 
-If macOS insists the app is damaged:
+Since macOS 15 the old right-click → Open trick no longer works for unsigned apps. Use
+either of these:
+
+**Option A — System Settings.** Try to open the app once, let it be blocked, then go to
+**System Settings → Privacy & Security**, scroll to the bottom, and click **"Open Anyway"**
+next to the Sticker message.
+
+**Option B — one line in Terminal:**
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Sticker.app
 ```
+
+This removes the "downloaded from the internet" flag. Do this only for software you trust —
+you can read every line of this one right here in `Sources/`.
 
 Then allow Bluetooth when asked, and turn the printer on. Requires macOS 13 or newer.
 Universal binary: Apple Silicon and Intel.
@@ -132,6 +144,11 @@ MIT
 
 Установка: скачать `Sticker.dmg` из [Releases](../../releases), перетащить в «Программы»,
 **первый запуск — правый клик → «Открыть»**. Разрешить Bluetooth, включить принтер.
+
+**Система не пускает приложение?** Это Gatekeeper: программа не подписана сертификатом
+Apple (он стоит $99 в год). Открой «Системные настройки» → «Конфиденциальность и
+безопасность», пролистай вниз и нажми **«Открыть всё равно»**. Либо одной строкой в
+Терминале: `xattr -dr com.apple.quarantine /Applications/Sticker.app`
 
 Если не подключается — смотри `~/Library/Logs/Sticker.log`, там видно каждое устройство
 в эфире и все найденные каналы.
