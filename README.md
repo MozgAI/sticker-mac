@@ -6,7 +6,11 @@
 Drop an image, fit it inside the shape, hit Print. No vendor app, no phone, no account.</p>
 
 <p align="center">
-  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/MozgAI/sticker-mac?color=e91e78&label=download" alt="Latest release"></a>
+  <a href="https://github.com/MozgAI/sticker-mac/releases/latest/download/Sticker.dmg"><img src="docs/download-button.png" width="460" alt="Download Sticker for macOS — free, universal, macOS 13+"></a>
+</p>
+
+<p align="center">
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/MozgAI/sticker-mac?color=e91e78&label=version" alt="Latest release"></a>
   <a href="../../releases"><img src="https://img.shields.io/github/downloads/MozgAI/sticker-mac/total?color=e91e78" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-black" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-universal-black" alt="Universal binary">
