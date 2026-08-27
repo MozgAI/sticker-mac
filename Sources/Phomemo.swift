@@ -72,6 +72,7 @@ final class Printer: NSObject, ObservableObject {
     private var peripheral: CBPeripheral?
     private var write: CBCharacteristic?
     private var manual = false          // пользователь выбрал устройство сам
+    private var servicesLeft = 0        // сколько сервисов ещё не разобрано
 
     /// Закреплённый принтер и фильтр по имени — чтобы у каждого работал свой аппарат.
     private let kPinned = "pinnedPrinter", kFilter = "printerNameFilter"
@@ -214,7 +215,7 @@ extension Printer: CBCentralManagerDelegate, CBPeripheralDelegate {
         Task { @MainActor in
             guard !connected else { return }
             let likely = isLikely(name, adv)
-            let shown = name ?? "без имени"
+            let shown = name ?? L10n.tr("noName")
             if let i = devices.firstIndex(where: { $0.id == p.identifier }) {
                 devices[i].rssi = rssi.intValue
             } else {
@@ -271,6 +272,7 @@ extension Printer: CBCentralManagerDelegate, CBPeripheralDelegate {
 
     nonisolated func peripheral(_ p: CBPeripheral, didDiscoverServices error: Error?) {
         Task { @MainActor in
+            servicesLeft = p.services?.count ?? 0
             for s in p.services ?? [] {
                 logLine("сервис \(s.uuid.uuidString)")
                 p.discoverCharacteristics(nil, for: s)
@@ -281,21 +283,31 @@ extension Printer: CBCentralManagerDelegate, CBPeripheralDelegate {
     nonisolated func peripheral(_ p: CBPeripheral, didDiscoverCharacteristicsFor s: CBService,
                                 error: Error?) {
         Task { @MainActor in
+            let printerService = Proto.known.contains(s.uuid)
             for ch in s.characteristics ?? [] {
                 let w = ch.properties.contains(.write)
                 let wn = ch.properties.contains(.writeWithoutResponse)
-                logLine("  канал \(ch.uuid.uuidString) write=\(w) writeNoResp=\(wn) notify=\(ch.properties.contains(.notify))")
-                // канал FF02 — приоритет; иначе берём первый пишущий
+                logLine("  канал \(ch.uuid.uuidString) write=\(w) writeNoResp=\(wn) notify=\(ch.properties.contains(.notify)) принтерный=\(printerService)")
+                // Только канал принтера: FF02 или запись внутри известного принтерного
+                // сервиса. Иначе телефон рядом сойдёт за принтер и печать уйдёт в никуда.
                 if ch.uuid == Proto.writeChar { write = ch }
-                else if write == nil, wn || w { write = ch }
-                if ch.properties.contains(.notify) { p.setNotifyValue(true, for: ch) }
+                else if printerService, write == nil, wn || w { write = ch }
+                if printerService, ch.properties.contains(.notify) { p.setNotifyValue(true, for: ch) }
             }
+            servicesLeft -= 1
+
             if let ch = write, !connected {
                 connected = true
-                connectedName = p.name ?? "принтер"
+                connectedName = p.name ?? "printer"
                 status = L10n.shared.t("stReady")
                 logLine("готов к печати, канал \(ch.uuid.uuidString)")
                 central.stopScan()
+            } else if servicesLeft <= 0, write == nil {
+                logLine("канала печати нет — это не принтер, отключаюсь")
+                status = L10n.shared.t("notAPrinter")
+                manual = false
+                if pinnedID == p.identifier.uuidString { unpin() }
+                central.cancelPeripheralConnection(p)
             }
         }
     }

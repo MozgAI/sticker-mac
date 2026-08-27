@@ -296,10 +296,10 @@ struct ContentView: View {
             Text(loc("language").uppercased())
                 .font(.caption).bold().foregroundStyle(.secondary)
             HStack(spacing: 10) {
-                ForEach(Lang.allCases) { l in
+                ForEach([Lang.en, .uk, .ru]) { l in
                     Button { loc.lang = l } label: {
                         Text(l.flag)
-                            .font(.system(size: 26))
+                            .font(.system(size: l == .ru ? 22 : 26))
                             .frame(width: 56, height: 40)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
