@@ -1,10 +1,8 @@
 <p align="center">
-  <img src="docs/icon.png" width="128" alt="Sticker app icon — pink thermal label printer">
+  <img src="docs/banner.png" width="720" alt="Sticker — print round and rectangular labels on Phomemo M110, M120, M220 and no-name thermal label printers from your Mac">
 </p>
 
-<h1 align="center">Sticker</h1>
-
-<p align="center"><b>Print round and rectangular stickers on cheap Bluetooth thermal label printers — from your Mac.</b><br>
+<p align="center"><b>Print round and rectangular stickers on Phomemo M110, M120, M200, M220 and the countless no-name Bluetooth thermal label printers — right from your Mac.</b><br>
 Drop an image, fit it inside the shape, hit Print. No vendor app, no phone, no account.</p>
 
 <p align="center">
@@ -19,9 +17,12 @@ Drop an image, fit it inside the shape, hit Print. No vendor app, no phone, no a
   <img src="docs/pipeline.png" width="640" alt="A JPEG design is converted into the exact 1-bit raster a thermal printer head burns">
 </p>
 
-Works with **Phomemo M110 / M120 / M220** and the countless unbranded AliExpress / Amazon / Temu
-clones that show up in Bluetooth as **“Label Printer”** or a bare serial number. If your thermal
-label maker prints 48 mm wide at 203 dpi over BLE — it almost certainly speaks this protocol.
+Works with the **Phomemo M110**, **Phomemo M120**, **Phomemo M200/M220**, and the countless
+white-label 58 mm thermal label makers sold on AliExpress, Amazon and Temu under names like
+**Munbyn, POLONO, Marklife, Jadens, iDPRT** — many of them are the same board inside and show up
+in Bluetooth as **“Label Printer”** or a bare serial number. If your sticker printer prints
+48 mm wide at 203 dpi over Bluetooth LE, it almost certainly speaks the Phomemo M110 protocol
+this app implements.
 
 ## Features
 
@@ -76,16 +77,22 @@ is remembered.
 The head has 384 dots at 203 dpi = 48 mm. The outer millimetre on each side is physically
 unreachable on every printer of this class.
 
+**Does it work with Niimbot, Brother or DYMO label printers?**
+No — Niimbot B1/B21/D110, Brother P-touch and DYMO use their own protocols. This app covers the
+Phomemo M110 dialect, which the cheap 58 mm "Label Printer" clones share.
+
 **Is my data uploaded anywhere?**
 No. There is no network code in the app at all — check `Sources/`, it's ~1200 lines of Swift.
 
 ## Supported printers
 
-| Printer | Advertised BLE name |
-|---|---|
-| Phomemo M110 / M120 / M220 | `M110-xxxx`, `Phomemo…` |
-| Unbranded 58 mm label makers | `Label Printer`, bare serial (`Q199E4…`) |
-| Anything with BLE service `FF00`, characteristic `FF02` | — |
+| Printer | Advertised BLE name | Status |
+|---|---|---|
+| Phomemo M110 | `M110-xxxx`, `Phomemo…` | protocol reference |
+| Phomemo M120 / M200 / M220 / M221 | `M120…`, `M220…` | same protocol family |
+| Unbranded 58 mm label makers (Munbyn, POLONO, Marklife, Jadens, iDPRT rebrands) | `Label Printer`, bare serial (`Q199E4…`) | **confirmed working** |
+| Anything with BLE service `FF00`, write characteristic `FF02` | — | should work |
+| Niimbot B1 / B21 / D110, Brother, DYMO | — | ✗ different protocol, not supported |
 
 ## The protocol (for driver writers)
 
