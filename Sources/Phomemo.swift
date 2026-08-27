@@ -61,7 +61,7 @@ struct Found: Identifiable, Equatable {
 
 @MainActor
 final class Printer: NSObject, ObservableObject {
-    @Published var status = "Включаю Bluetooth…"
+    @Published var status = L10n.shared.t("stStarting")
     @Published var connected = false
     @Published var busy = false
     @Published var progress: Double = 0
@@ -101,8 +101,8 @@ final class Printer: NSObject, ObservableObject {
         case notConnected, noChannel
         var errorDescription: String? {
             switch self {
-            case .notConnected: return "Принтер не подключён."
-            case .noChannel: return "Принтер подключился, но не дал канал для печати."
+            case .notConnected: return L10n.tr("errNotConn")
+            case .noChannel: return L10n.tr("errNoChannel")
             }
         }
     }
@@ -116,7 +116,7 @@ final class Printer: NSObject, ObservableObject {
     func startScan() {
         guard central.state == .poweredOn else { return }
         devices.removeAll()
-        status = "Ищу принтер…"
+        status = L10n.shared.t("stSearching")
         logLine("сканирую эфир")
         central.scanForPeripherals(withServices: nil,
                                    options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
@@ -128,7 +128,7 @@ final class Printer: NSObject, ObservableObject {
         central.stopScan()
         peripheral = f.peripheral
         f.peripheral.delegate = self
-        status = "Подключаюсь к \(f.name)…"
+        status = L10n.shared.t("stConnecting").replacingOccurrences(of: "%@", with: f.name)
         logLine("подключаюсь вручную: \(f.name)")
         central.connect(f.peripheral)
     }
@@ -159,7 +159,11 @@ final class Printer: NSObject, ObservableObject {
         logLine("печать: строк \(lines), байт \(raster.count), канал \(ch.uuid.uuidString)")
 
         for copy in 1...max(1, layout.copies) {
-            status = layout.copies > 1 ? "Печатаю \(copy) из \(layout.copies)…" : "Печатаю…"
+            status = layout.copies > 1
+                ? L10n.shared.t("printingN")
+                    .replacingOccurrences(of: "%@", with: "\(copy)", options: [], range: nil)
+                    .replacingOccurrences(of: "%@", with: "\(layout.copies)")
+                : L10n.shared.t("printing")
 
             p.writeValue(Proto.speed(layout.speed), for: ch, type: mode)
             try await Task.sleep(nanoseconds: Proto.cmdDelay)
@@ -183,7 +187,7 @@ final class Printer: NSObject, ObservableObject {
             try await Task.sleep(nanoseconds: Proto.afterFooter)
             if copy < layout.copies { try await Task.sleep(nanoseconds: 600_000_000) }
         }
-        status = "Готово ✓"
+        status = L10n.shared.t("stDone")
         logLine("печать отправлена")
     }
 }
@@ -193,10 +197,10 @@ extension Printer: CBCentralManagerDelegate, CBPeripheralDelegate {
         Task { @MainActor in
             switch c.state {
             case .poweredOn: logLine("Bluetooth разрешён и включён"); startScan()
-            case .poweredOff: status = "Bluetooth выключен"
-            case .unauthorized: status = "Разреши Bluetooth: Настройки → Конфиденциальность → Bluetooth"
-            case .unsupported: status = "Bluetooth не поддерживается"
-            default: status = "Bluetooth недоступен (\(c.state.rawValue))"
+            case .poweredOff: status = L10n.shared.t("stBtOff")
+            case .unauthorized: status = L10n.shared.t("stBtDenied")
+            case .unsupported: status = L10n.shared.t("stBtNo")
+            default: status = L10n.shared.t("stBtNo")
             }
             logLine("состояние Bluetooth: \(c.state.rawValue)")
         }
@@ -230,7 +234,9 @@ extension Printer: CBCentralManagerDelegate, CBPeripheralDelegate {
             }
             if peripheral == nil {
                 let n = devices.filter(\.likely).count
-                status = n > 0 ? "Нашла принтеров: \(n)" : "Ищу принтер… (\(devices.count) устройств)"
+                status = n > 0
+                    ? L10n.shared.t("stFound").replacingOccurrences(of: "%@", with: "\(n)")
+                    : L10n.shared.t("stSeen").replacingOccurrences(of: "%@", with: "\(devices.count)")
             }
         }
     }
@@ -238,7 +244,7 @@ extension Printer: CBCentralManagerDelegate, CBPeripheralDelegate {
     nonisolated func centralManager(_ c: CBCentralManager, didConnect p: CBPeripheral) {
         Task { @MainActor in
             logLine("подключено к \(p.name ?? "?"), ищу сервисы")
-            status = "Подключено, ищу канал печати…"
+            status = L10n.shared.t("stFindingChan")
             p.discoverServices(nil)
         }
     }
@@ -247,7 +253,7 @@ extension Printer: CBCentralManagerDelegate, CBPeripheralDelegate {
                                     error: Error?) {
         Task { @MainActor in
             logLine("не удалось подключиться: \(error?.localizedDescription ?? "?")")
-            status = "Не подключилось. Попробуй ещё раз."
+            status = L10n.shared.t("stFailed")
             peripheral = nil; manual = false
             startScan()
         }
@@ -258,7 +264,7 @@ extension Printer: CBCentralManagerDelegate, CBPeripheralDelegate {
         Task { @MainActor in
             logLine("принтер отключился: \(error?.localizedDescription ?? "штатно")")
             connected = false; write = nil; peripheral = nil; connectedName = ""
-            status = "Принтер отключился"
+            status = L10n.shared.t("stLost")
             startScan()
         }
     }
@@ -287,7 +293,7 @@ extension Printer: CBCentralManagerDelegate, CBPeripheralDelegate {
             if let ch = write, !connected {
                 connected = true
                 connectedName = p.name ?? "принтер"
-                status = "Принтер готов ✓"
+                status = L10n.shared.t("stReady")
                 logLine("готов к печати, канал \(ch.uuid.uuidString)")
                 central.stopScan()
             }

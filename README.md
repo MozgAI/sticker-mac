@@ -34,6 +34,7 @@ This is a small native macOS app that does exactly that, and nothing else.
 - **Artwork vs Photo**: hard threshold for monograms and logos, Floyd–Steinberg dithering
   for photographs, plus a background cleaner that kills JPEG speckle on "white" areas
 - **Copies**, print quality (head speed) and burn density
+- **English, Russian and Ukrainian** — switch by tapping a flag at the bottom of the panel
 - Pin your printer so the app always connects to *yours*, or filter by name
 
 ## Install

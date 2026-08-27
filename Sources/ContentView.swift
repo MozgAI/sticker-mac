@@ -9,17 +9,16 @@ extension Color {
 
 struct ContentView: View {
     @StateObject private var printer = Printer()
+    @ObservedObject private var loc = L10n.shared
+    @ObservedObject private var inbox = Inbox.shared
     @State private var layout = Layout()
     @State private var source: CGImage?
     @State private var fileName = ""
     @State private var showAsPrinted = true
     @State private var dragStart: CGSize?
-    /// Показывать превью перевёрнутым — как наклейка выезжает из принтера.
     @State private var flipPreview = false
     @State private var error: String?
-    @ObservedObject private var inbox = Inbox.shared
 
-    /// Итоговая картинка: то, что уйдёт в принтер.
     private var composed: CGImage? { Renderer.compose(image: source, layout: layout) }
 
     private var preview: NSImage? {
@@ -32,12 +31,12 @@ struct ContentView: View {
         HStack(spacing: 0) {
             canvas
             Divider()
-            controls.frame(width: 300)
+            controls.frame(width: 310)
         }
-        .frame(minWidth: 900, minHeight: 620)
+        .frame(minWidth: 940, minHeight: 640)
         .onReceive(inbox.$url.compactMap { $0 }) { set($0) }
-        .alert("Не получилось", isPresented: .constant(error != nil)) {
-            Button("Ясно") { error = nil }
+        .alert(loc("errorTitle"), isPresented: .constant(error != nil)) {
+            Button(loc("errorOK")) { error = nil }
         } message: { Text(error ?? "") }
     }
 
@@ -47,13 +46,13 @@ struct ContentView: View {
         VStack(spacing: 12) {
             HStack {
                 Toggle(isOn: $flipPreview) {
-                    Label("Перевернуть превью", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
+                    Label(loc("flipPreview"), systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
                 }
                 .toggleStyle(.button)
                 .controlSize(.large)
-                .help("Показать так, как наклейка выезжает из принтера")
+                .help(loc("flipHelp"))
                 if flipPreview {
-                    Text("вид как из принтера").font(.caption).foregroundStyle(.secondary)
+                    Text(loc("flipOn")).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -74,9 +73,8 @@ struct ContentView: View {
                 if source == nil {
                     VStack(spacing: 8) {
                         Image(systemName: "photo.badge.plus").font(.system(size: 42))
-                        Text("Перетащи сюда картинку").font(.title3)
-                        Text("зелёное — обрежется, в круге — напечатается")
-                            .font(.caption).foregroundStyle(.secondary)
+                        Text(loc("dropHere")).font(.title3)
+                        Text(loc("dropHint")).font(.caption).foregroundStyle(.secondary)
                     }.foregroundStyle(.secondary)
                 }
             }
@@ -96,8 +94,8 @@ struct ContentView: View {
                 load(from: providers); return true
             }
 
-            Text(source == nil ? "Файл не выбран"
-                 : "\(fileName)  ·  тяни мышкой, чтобы двигать  ·  \(Int(layout.zoom * 100))%")
+            Text(source == nil ? loc("noFile")
+                 : "\(fileName)  ·  \(loc("dragToMove"))  ·  \(Int(layout.zoom * 100))%")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -107,12 +105,12 @@ struct ContentView: View {
     private var controls: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                group("Печать") {
+
+                group(loc("sectionPrint")) {
                     HStack(spacing: 10) {
-                        Button {
-                            printNow()
-                        } label: {
-                            Label(printer.busy ? "Печатаю…" : "ПЕЧАТЬ", systemImage: "printer.fill")
+                        Button { printNow() } label: {
+                            Label(printer.busy ? loc("printing") : loc("print"),
+                                  systemImage: "printer.fill")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
@@ -127,158 +125,150 @@ struct ContentView: View {
                     if printer.busy { ProgressView(value: printer.progress) }
                     HStack(spacing: 6) {
                         Circle().fill(printer.connected ? .green : .orange).frame(width: 8, height: 8)
-                        Text(printer.connected ? "\(printer.connectedName) · готов" : printer.status)
+                        Text(printer.connected ? "\(printer.connectedName) · \(loc("ready"))"
+                                               : printer.status)
                             .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                     HStack {
-                        Button("Пробный круг") { printNow(testOnly: true) }
+                        Button(loc("testShape")) { printNow(testOnly: true) }
                             .disabled(!printer.connected || printer.busy)
-                        Button("Сохранить PNG") { savePNG() }.disabled(composed == nil)
+                            .help(loc("testHelp"))
+                        Button(loc("savePNG")) { savePNG() }.disabled(composed == nil)
                     }
                 }
                 Divider()
 
-
-                group("Картинка") {
+                group(loc("sectionImage")) {
                     HStack {
-                        Button("Открыть…") { openFile() }
-                        Button("По центру") { layout.panX = 0; layout.panY = 0; layout.zoom = 1 }
+                        Button(loc("open")) { openFile() }
+                        Button(loc("center")) { layout.panX = 0; layout.panY = 0; layout.zoom = 1 }
                             .disabled(source == nil)
                     }
-                    labeled("Масштаб", String(format: "%.0f%%", layout.zoom * 100))
+                    labeled(loc("scale"), String(format: "%.0f%%", layout.zoom * 100))
                     Slider(value: $layout.zoom, in: 0.4...4)
                 }
 
-                group("Форма наклейки") {
+                group(loc("sectionShape")) {
                     Picker("", selection: $layout.shape) {
-                        ForEach(Shape.allCases) { Text($0.rawValue).tag($0) }
+                        Text(loc("circle")).tag(Shape.circle)
+                        Text(loc("rect")).tag(Shape.rect)
                     }
                     .pickerStyle(.segmented).labelsHidden()
 
                     if layout.shape == .circle {
-                        labeled("Диаметр рисунка", String(format: "%.0f мм", layout.printMM))
+                        labeled(loc("diameter"), mm(layout.printMM))
                         Slider(value: $layout.printMM, in: 10...48, step: 1)
                     } else {
-                        labeled("Ширина рисунка", String(format: "%.0f мм", layout.printWMM))
+                        labeled(loc("artWidth"), mm(layout.printWMM))
                         Slider(value: $layout.printWMM, in: 10...48, step: 1)
-                        labeled("Высота рисунка", String(format: "%.0f мм", layout.printHMM))
+                        labeled(loc("artHeight"), mm(layout.printHMM))
                         Slider(value: $layout.printHMM, in: 8...80, step: 1)
-                        labeled("Скругление углов", String(format: "%.0f мм", layout.cornerMM))
+                        labeled(loc("corner"), mm(layout.cornerMM))
                         Slider(value: $layout.cornerMM, in: 0...10, step: 0.5)
                     }
-                    Text("Насколько крупно печатать. Должно влезать в наклейку.")
-                        .font(.caption2).foregroundStyle(.secondary)
+                    hint(loc("shapeHint"))
                 }
 
-                group("Размер наклейки") {
-                    labeled("Шаг подачи", String(format: "%.0f мм", layout.labelMM))
+                group(loc("sectionLabel")) {
+                    labeled(loc("feed"), mm(layout.labelMM))
                     Slider(value: $layout.labelMM, in: 10...80, step: 1)
                     if layout.shape == .rect {
-                        labeled("Ширина наклейки", String(format: "%.0f мм", layout.labelWMM))
+                        labeled(loc("labelWidth"), mm(layout.labelWMM))
                         Slider(value: $layout.labelWMM, in: 10...48, step: 1)
                     }
-                    Text("Сколько ленты протянуть — высота одной наклейки с зазором. Белый пунктир в превью.")
-                        .font(.caption2).foregroundStyle(.secondary)
+                    hint(loc("feedHint"))
                 }
 
-                group("Выравнивание") {
+                group(loc("sectionAlign")) {
                     nudgePad
-                    Text(flipPreview
-                         ? "Стрелки двигают так, как ты видишь на перевёрнутом превью."
-                         : "Если печать съезжает с вырубленного круга — двигай стрелками. Сверху в центре — сдвиг вбок, снизу — по ленте.")
-                        .font(.caption2).foregroundStyle(.secondary)
+                    hint(flipPreview ? loc("alignFlipped") : loc("alignHint"))
                 }
 
-                group("Ориентация на ленте") {
+                group(loc("sectionOrient")) {
                     Picker("", selection: Binding(
                         get: { layout.mirror ? (layout.flip180 ? 3 : 1) : (layout.flip180 ? 2 : 0) },
                         set: { v in layout.mirror = (v == 1 || v == 3)
                                    layout.flip180 = (v == 2 || v == 3) })) {
-                        Text("Как есть").tag(0)
-                        Text("Зеркало").tag(1)
+                        Text(loc("asIs")).tag(0)
+                        Text(loc("mirror")).tag(1)
                         Text("180°").tag(2)
-                        Text("Оба").tag(3)
+                        Text(loc("both")).tag(3)
                     }
                     .pickerStyle(.segmented).labelsHidden()
-                    Text("Если вышло зеркально или вверх ногами — переключи здесь. Превью не меняется: там всегда как ляжет в руку.")
-                        .font(.caption2).foregroundStyle(.secondary)
+                    hint(loc("orientHint"))
 
-                    labeled("Качество", layout.speed <= 2 ? "максимум" : "быстро")
+                    labeled(loc("quality"), layout.speed <= 2 ? loc("qMax")
+                            : (layout.speed >= 5 ? loc("qFast") : loc("qMid")))
                     Picker("", selection: $layout.speed) {
-                        Text("Максимум").tag(1)
-                        Text("Средне").tag(3)
-                        Text("Быстро").tag(5)
+                        Text(loc("qMax")).tag(1)
+                        Text(loc("qMid")).tag(3)
+                        Text(loc("qFast")).tag(5)
                     }
                     .pickerStyle(.segmented).labelsHidden()
                 }
 
-                group("Как печатать") {
+                group(loc("sectionHow")) {
                     Picker("", selection: $layout.dither) {
-                        Text("Рисунок").tag(false)
-                        Text("Фото").tag(true)
+                        Text(loc("artwork")).tag(false)
+                        Text(loc("photo")).tag(true)
                     }
                     .pickerStyle(.segmented).labelsHidden()
-                    Text(layout.dither
-                         ? "Полутона точками — для фотографий и градиентов."
-                         : "Чисто чёрное и белое — для вензелей, надписей и лого.")
-                        .font(.caption2).foregroundStyle(.secondary)
+                    hint(layout.dither ? loc("photoHint") : loc("artworkHint"))
 
                     if !layout.dither {
-                        labeled("Порог чёрного", "\(layout.threshold)")
+                        labeled(loc("threshold"), "\(layout.threshold)")
                         Slider(value: Binding(get: { Double(layout.threshold) },
                                               set: { layout.threshold = Int($0) }),
                                in: 60...240, step: 5)
-                        Text("Ниже — только самое тёмное. Выше — тонкие линии не пропадут.")
-                            .font(.caption2).foregroundStyle(.secondary)
+                        hint(loc("thresholdHint"))
                     }
 
-                    labeled("Чистка фона", String(format: "%.0f%%", layout.cleanBG * 100))
+                    labeled(loc("cleanBG"), String(format: "%.0f%%", layout.cleanBG * 100))
                     Slider(value: $layout.cleanBG, in: 0...0.4)
-                    Text("Убирает крапинки на белом от сжатия JPEG.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                    Toggle("Негатив", isOn: $layout.invert)
-                    Toggle("Показывать как напечатается", isOn: $showAsPrinted)
-                    labeled("Яркость", String(format: "%+.2f", layout.brightness))
+                    hint(loc("cleanHint"))
+
+                    Toggle(loc("negative"), isOn: $layout.invert)
+                    Toggle(loc("showPrinted"), isOn: $showAsPrinted)
+                    labeled(loc("brightness"), String(format: "%+.2f", layout.brightness))
                     Slider(value: $layout.brightness, in: -0.5...0.5)
-                    labeled("Контраст", String(format: "%.2f", layout.contrast))
+                    labeled(loc("contrast"), String(format: "%.2f", layout.contrast))
                     Slider(value: $layout.contrast, in: 0.5...2.5)
-                    labeled("Нагрев", "\(layout.density)")
+                    labeled(loc("density"), "\(layout.density)")
                     Slider(value: Binding(get: { Double(layout.density) },
                                           set: { layout.density = Int($0) }), in: 1...15, step: 1)
                 }
 
                 Divider()
-                group("Принтер") {
+                group(loc("sectionPrinter")) {
                     HStack {
-                        TextField("часть имени принтера", text: Binding(
+                        TextField(loc("namePlaceholder"), text: Binding(
                             get: { printer.nameFilter },
                             set: { printer.setFilter($0) }))
                             .textFieldStyle(.roundedBorder)
-                        Button("Искать") { printer.startScan() }
+                        Button(loc("scan")) { printer.startScan() }
                     }
-                    Text("Пусто — ищу любой принтер этикеток. Впиши кусок имени своего, если рядом несколько.")
-                        .font(.caption2).foregroundStyle(.secondary)
+                    hint(loc("filterHint"))
 
                     if printer.connected {
                         HStack {
                             if printer.pinnedID == nil {
-                                Button("Запомнить этот принтер") { printer.pinCurrent() }
+                                Button(loc("pin")) { printer.pinCurrent() }
                             } else {
-                                Label("Закреплён", systemImage: "pin.fill").font(.caption)
+                                Label(loc("pinned"), systemImage: "pin.fill").font(.caption)
                                 Spacer()
-                                Button("Забыть") { printer.unpin() }.font(.caption)
+                                Button(loc("forget")) { printer.unpin() }.font(.caption)
                             }
                         }
-                    }
-
-                    if !printer.connected {
+                        HStack {
+                            Text(printer.connectedName).font(.caption).bold()
+                            Spacer()
+                            Button(loc("disconnect")) { printer.disconnect() }.font(.caption)
+                        }
+                    } else {
                         if !printer.devices.isEmpty {
-                            Text("Что в эфире — нажми свой принтер:")
-                                .font(.caption2).foregroundStyle(.secondary)
+                            hint(loc("devicesHint"))
                             ForEach(printer.devices.prefix(8)) { d in
-                                Button {
-                                    printer.connect(to: d)
-                                } label: {
+                                Button { printer.connect(to: d) } label: {
                                     HStack {
                                         Image(systemName: d.likely ? "printer" : "dot.radiowaves.left.and.right")
                                         Text(d.name).lineLimit(1)
@@ -290,19 +280,47 @@ struct ContentView: View {
                                 .frame(maxWidth: .infinity)
                             }
                         }
-                        Button("Искать заново") { printer.startScan() }.font(.caption)
-                    } else {
-                        HStack {
-                            Text(printer.connectedName).font(.caption).bold()
-                            Spacer()
-                            Button("Отключить") { printer.disconnect() }.font(.caption)
-                        }
                     }
                 }
+
+                Divider()
+                languagePicker
             }
             .padding(18)
         }
     }
+
+    /// Флаги внизу: нажал — язык сменился сразу, без перезапуска.
+    private var languagePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(loc("language").uppercased())
+                .font(.caption).bold().foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                ForEach(Lang.allCases) { l in
+                    Button { loc.lang = l } label: {
+                        Text(l.flag)
+                            .font(.system(size: 26))
+                            .frame(width: 56, height: 40)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(loc.lang == l ? Color.sticker.opacity(0.18) : Color.clear)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(loc.lang == l ? Color.sticker : Color.secondary.opacity(0.3),
+                                            lineWidth: loc.lang == l ? 2 : 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+            }
+        }
+    }
+
+    // MARK: - мелочи интерфейса
+
+    private func mm(_ v: CGFloat) -> String { String(format: "%.0f mm", v) }
 
     private func group<C: View>(_ title: String, @ViewBuilder _ c: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -313,6 +331,10 @@ struct ContentView: View {
 
     private func labeled(_ a: String, _ b: String) -> some View {
         HStack { Text(a).font(.callout); Spacer(); Text(b).font(.callout).monospacedDigit() }
+    }
+
+    private func hint(_ s: String) -> some View {
+        Text(s).font(.caption2).foregroundStyle(.secondary)
     }
 
     /// Джойстик: стрелки понятно куда жать, в центре — крупные значения обеих осей.
@@ -335,7 +357,7 @@ struct ContentView: View {
                     .frame(width: 74, height: 50)
                 }
                 .buttonStyle(.bordered)
-                .help("Верх — вбок, низ — по ленте. Нажми, чтобы обнулить")
+                .help(loc("resetHelp"))
                 arrow("chevron.right") { move(dx: 0.5) }
             }
             arrow("chevron.down") { move(dy: 0.5) }
@@ -351,21 +373,10 @@ struct ContentView: View {
         .buttonStyle(.bordered)
     }
 
-    /// Сдвиг в миллиметрах. При перевёрнутом превью — в ту же сторону, куда смотрит глаз.
     private func move(dx: CGFloat = 0, dy: CGFloat = 0) {
         let k: CGFloat = flipPreview ? -1 : 1
         layout.shiftXMM += dx * k
         layout.shiftYMM += dy * k
-    }
-
-    private func stepperMM(_ title: String, _ v: Binding<CGFloat>) -> some View {
-        HStack {
-            Text(title).font(.callout)
-            Spacer()
-            Text(String(format: "%+.1f", v.wrappedValue)).monospacedDigit().frame(width: 44)
-            Stepper("") { v.wrappedValue += 0.5 } onDecrement: { v.wrappedValue -= 0.5 }
-                .labelsHidden()
-        }
     }
 
     // MARK: - действия
@@ -388,18 +399,18 @@ struct ContentView: View {
             }
             return
         }
-        // картинку могли бросить прямо из браузера — сохраняем во временный файл
         pr.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
             guard let data else { return }
-            let tmp = FileManager.default.temporaryDirectory
-                .appendingPathComponent("dropped.png")
+            let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("dropped.png")
             try? data.write(to: tmp)
             DispatchQueue.main.async { set(tmp) }
         }
     }
 
     private func set(_ url: URL) {
-        guard let img = Renderer.load(url: url) else { error = "Не читается: \(url.lastPathComponent)"; return }
+        guard let img = Renderer.load(url: url) else {
+            error = "\(loc("cantRead")): \(url.lastPathComponent)"; return
+        }
         source = img
         fileName = url.lastPathComponent
         layout.zoom = 1; layout.panX = 0; layout.panY = 0
@@ -421,7 +432,7 @@ struct ContentView: View {
               let img = showAsPrinted ? Renderer.preview1bit(c, layout: layout) : c else { return }
         let p = NSSavePanel()
         p.allowedContentTypes = [.png]
-        p.nameFieldStringValue = "наклейка.png"
+        p.nameFieldStringValue = "sticker.png"
         guard p.runModal() == .OK, let url = p.url else { return }
         let rep = NSBitmapImageRep(cgImage: img)
         rep.size = NSSize(width: img.width, height: img.height)
