@@ -9,10 +9,22 @@ enum P {
     static func mm(_ v: CGFloat) -> CGFloat { v * dotsPerMM }
 }
 
+/// Форма наклейки в рулоне.
+enum Shape: String, CaseIterable, Identifiable {
+    case circle = "Круг"
+    case rect = "Прямоугольник"
+    var id: String { rawValue }
+}
+
 /// Что пользователь накрутил в окне.
 struct Layout: Equatable {
+    var shape: Shape = .circle
     var labelMM: CGFloat = 50                 // шаг подачи: высота наклейки с зазором
-    var printMM: CGFloat = 40                 // диаметр самого рисунка
+    var labelWMM: CGFloat = 48                // ширина наклейки — для пунктира
+    var printMM: CGFloat = 40                 // диаметр рисунка (круг)
+    var printWMM: CGFloat = 44                // ширина рисунка (прямоугольник)
+    var printHMM: CGFloat = 28                // высота рисунка (прямоугольник)
+    var cornerMM: CGFloat = 2                 // скругление углов
     var zoom: CGFloat = 1.0                   // масштаб картинки внутри круга
     var panX: CGFloat = 0                     // сдвиг картинки, доли диаметра
     var panY: CGFloat = 0
@@ -34,24 +46,47 @@ struct Layout: Equatable {
 
     /// Высота холста = высота наклейки: столько ленты принтер протянет.
     var canvasHeight: Int { Int((P.mm(labelMM)).rounded()) }
-    /// Диаметр рисунка в точках. Шире головки не бывает.
-    var circleDots: CGFloat { min(P.mm(printMM), CGFloat(P.headDots)) }
+    /// Размер рисунка в точках. Шире головки (384) не бывает.
+    var shapeSize: CGSize {
+        switch shape {
+        case .circle:
+            let d = min(P.mm(printMM), CGFloat(P.headDots))
+            return CGSize(width: d, height: d)
+        case .rect:
+            return CGSize(width: min(P.mm(printWMM), CGFloat(P.headDots)),
+                          height: min(P.mm(printHMM), CGFloat(canvasHeight)))
+        }
+    }
 }
 
 enum Renderer {
 
     /// Центр круга с учётом калибровочного сдвига и прямоугольник картинки.
     static func geometry(image: CGImage?, layout L: Layout)
-        -> (center: CGPoint, diameter: CGFloat, rect: CGRect?) {
+        -> (center: CGPoint, size: CGSize, rect: CGRect?) {
         let w = CGFloat(P.headDots), h = CGFloat(L.canvasHeight)
         let c = CGPoint(x: w / 2 + P.mm(L.shiftXMM), y: h / 2 - P.mm(L.shiftYMM))
-        let d = L.circleDots
-        guard let img = image else { return (c, d, nil) }
+        let sz = L.shapeSize
+        guard let img = image else { return (c, sz, nil) }
         let iw = CGFloat(img.width), ih = CGFloat(img.height)
-        let fill = max(d / iw, d / ih) * L.zoom
+        let fill = max(sz.width / iw, sz.height / ih) * L.zoom
         let dw = iw * fill, dh = ih * fill
-        return (c, d, CGRect(x: c.x - dw / 2 + L.panX * d,
-                             y: c.y - dh / 2 - L.panY * d, width: dw, height: dh))
+        let base = max(sz.width, sz.height)
+        return (c, sz, CGRect(x: c.x - dw / 2 + L.panX * base,
+                              y: c.y - dh / 2 - L.panY * base, width: dw, height: dh))
+    }
+
+    /// Контур наклейки: круг или прямоугольник со скруглением.
+    static func shapePath(center c: CGPoint, size: CGSize, layout L: Layout) -> CGPath {
+        let r = CGRect(x: c.x - size.width / 2, y: c.y - size.height / 2,
+                       width: size.width, height: size.height)
+        switch L.shape {
+        case .circle:
+            return CGPath(ellipseIn: r, transform: nil)
+        case .rect:
+            let rad = min(P.mm(L.cornerMM), min(r.width, r.height) / 2)
+            return CGPath(roundedRect: r, cornerWidth: rad, cornerHeight: rad, transform: nil)
+        }
     }
 
     /// Превью для глаз: вне круга — ярко-зелёное, внутри — ровно то, что напечатается.
@@ -76,25 +111,29 @@ enum Renderer {
 
         guard let inside = compose(image: image, layout: L) else { return ctx.makeImage() }
         let shown = printed ? (preview1bit(inside, layout: L) ?? inside) : inside
-        let circle = CGRect(x: g.center.x - g.diameter / 2, y: g.center.y - g.diameter / 2,
-                            width: g.diameter, height: g.diameter)
+        let path = shapePath(center: g.center, size: g.size, layout: L)
         ctx.saveGState()
-        ctx.addEllipse(in: circle)
+        ctx.addPath(path)
         ctx.clip()
         ctx.draw(shown, in: CGRect(x: 0, y: 0, width: w, height: h))
         ctx.restoreGState()
 
         ctx.setStrokeColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0.55))
         ctx.setLineWidth(1.5)
-        ctx.strokeEllipse(in: circle)
+        ctx.addPath(path)
+        ctx.strokePath()
 
         // край физической наклейки — пунктиром, печать должна остаться внутри
-        let ld = P.mm(L.labelMM)
+        var outer = L
+        outer.printMM = L.labelMM
+        outer.printWMM = L.labelWMM
+        outer.printHMM = L.labelMM
+        let outerPath = shapePath(center: g.center, size: outer.shapeSize, layout: outer)
         ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.85))
         ctx.setLineWidth(1)
         ctx.setLineDash(phase: 0, lengths: [5, 5])
-        ctx.strokeEllipse(in: CGRect(x: g.center.x - ld / 2, y: g.center.y - ld / 2,
-                                     width: ld, height: ld))
+        ctx.addPath(outerPath)
+        ctx.strokePath()
         ctx.setLineDash(phase: 0, lengths: [])
         return ctx.makeImage()
     }
@@ -111,19 +150,19 @@ enum Renderer {
         ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
 
         let g = geometry(image: image, layout: L)
-        let c = g.center, d = g.diameter
-        let circle = CGRect(x: c.x - d / 2, y: c.y - d / 2, width: d, height: d)
+        let path = shapePath(center: g.center, size: g.size, layout: L)
 
         if let img = image, let rect = g.rect {
             ctx.saveGState()
-            ctx.addEllipse(in: circle)
+            ctx.addPath(path)
             ctx.clip()
             ctx.draw(img, in: rect)
             ctx.restoreGState()
         } else {
             ctx.setStrokeColor(CGColor(gray: 0, alpha: 1))
             ctx.setLineWidth(2)
-            ctx.strokeEllipse(in: circle)
+            ctx.addPath(path)
+            ctx.strokePath()
         }
         guard let out = ctx.makeImage() else { return nil }
         return adjust(out, layout: L)

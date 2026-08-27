@@ -149,14 +149,34 @@ struct ContentView: View {
                     Slider(value: $layout.zoom, in: 0.4...4)
                 }
 
-                group("Размеры") {
-                    labeled("Диаметр рисунка", String(format: "%.0f мм", layout.printMM))
-                    Slider(value: $layout.printMM, in: 10...48, step: 1)
-                    Text("Насколько крупно печатать. Должен влезать в наклейку.")
-                        .font(.caption2).foregroundStyle(.secondary)
+                group("Форма наклейки") {
+                    Picker("", selection: $layout.shape) {
+                        ForEach(Shape.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented).labelsHidden()
 
-                    labeled("Шаг наклейки", String(format: "%.0f мм", layout.labelMM))
-                    Slider(value: $layout.labelMM, in: 15...80, step: 1)
+                    if layout.shape == .circle {
+                        labeled("Диаметр рисунка", String(format: "%.0f мм", layout.printMM))
+                        Slider(value: $layout.printMM, in: 10...48, step: 1)
+                    } else {
+                        labeled("Ширина рисунка", String(format: "%.0f мм", layout.printWMM))
+                        Slider(value: $layout.printWMM, in: 10...48, step: 1)
+                        labeled("Высота рисунка", String(format: "%.0f мм", layout.printHMM))
+                        Slider(value: $layout.printHMM, in: 8...80, step: 1)
+                        labeled("Скругление углов", String(format: "%.0f мм", layout.cornerMM))
+                        Slider(value: $layout.cornerMM, in: 0...10, step: 0.5)
+                    }
+                    Text("Насколько крупно печатать. Должно влезать в наклейку.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+
+                group("Размер наклейки") {
+                    labeled("Шаг подачи", String(format: "%.0f мм", layout.labelMM))
+                    Slider(value: $layout.labelMM, in: 10...80, step: 1)
+                    if layout.shape == .rect {
+                        labeled("Ширина наклейки", String(format: "%.0f мм", layout.labelWMM))
+                        Slider(value: $layout.labelWMM, in: 10...48, step: 1)
+                    }
                     Text("Сколько ленты протянуть — высота одной наклейки с зазором. Белый пунктир в превью.")
                         .font(.caption2).foregroundStyle(.secondary)
                 }

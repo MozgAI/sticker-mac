@@ -5,8 +5,8 @@
 <h1 align="center">Sticker</h1>
 
 <p align="center">
-  Print <b>round stickers</b> on cheap Bluetooth thermal label printers — from your Mac.<br>
-  Drop an image, fit it inside the circle, hit print. No vendor app, no phone.
+  Print <b>round and rectangular stickers</b> on cheap Bluetooth thermal label printers — from your Mac.<br>
+  Drop an image, fit it inside the shape, hit print. No vendor app, no phone.
 </p>
 
 ---
@@ -22,8 +22,9 @@ This is a small native macOS app that does exactly that, and nothing else.
 
 ## What it does
 
+- **Round or rectangular labels** — pick the shape, set width, height and corner radius
 - **Drop an image** into the window, onto the Dock icon, or open it with `File → Open`
-- A **circular mask** shows what lands on the label; everything in the pink area is cut off
+- A **shaped mask** shows what lands on the label; everything in the pink area is cut off
 - **Drag to move, slider to zoom** until the artwork sits where you want it
 - The preview is not your file — it is a **1-bit render of what the print head will actually burn**
 - **Print size and feed length are separate**: shrink the artwork to 35 mm while still
@@ -109,7 +110,7 @@ MIT
 <details>
 <summary><b>По-русски</b></summary>
 
-Приложение для macOS: печать **круглых наклеек** на дешёвых Bluetooth-принтерах этикеток
+Приложение для macOS: печать **круглых и прямоугольных наклеек** на дешёвых Bluetooth-принтерах этикеток
 (Phomemo M110 и безымянные клоны, которые представляются как `Label Printer`).
 
 Перетаскиваешь картинку → она ложится в круг, всё розовое обрежется → двигаешь мышкой,
